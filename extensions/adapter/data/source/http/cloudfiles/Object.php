@@ -17,22 +17,14 @@ class Object extends \li3_cloudfiles\extensions\adapter\data\source\http\CloudFi
             '/{:container}'         => array('container'),
             '/{:container}/{:name}' => array('container', 'name'),
         ),
-        'create' => array(
-            '/{:container}/{:name}' => array('container', 'name', 'content', 'type')
-        ),
-        'update' => array(
-            '/{:container}/{:name}' => array('container', 'name', 'content', 'type', 'hash', 'lastModified', 'bytes')
-        ),
-        'delete' => array(
-            '/{:container}/{:name}' => array('container', 'name')
-        )
+        'create' => '/{:container}/{:name}',
+        'update' => '/{:container}/{:name}',
+        'delete' => '/{:container}/{:name}'
     );
     
     public function read($query, array $options = array()) {
 
-        extract($query->export($this, array(
-            'conditions', 'class', 'cascade'
-        )));
+        extract($query->export($this));
 
         if (!$conditions) {
             $conditions = array();
@@ -41,8 +33,10 @@ class Object extends \li3_cloudfiles\extensions\adapter\data\source\http\CloudFi
         $params   = array('data' => array());        
         $optional = array('marker', 'prefix', 'path', 'delimiter');
 
-        foreach ($query->export($this, $optional) as $key => $value) {
-            $params['data'][$key] = $value;
+        foreach ($query->export($this) as $key => $value) {
+            if (in_array($key, $optional)) {
+                $params['data'][$key] = $value;
+            }
         }
         
         if (!isset($conditions['name'])) {
@@ -52,7 +46,7 @@ class Object extends \li3_cloudfiles\extensions\adapter\data\source\http\CloudFi
         if ($query->limit()) {
             $params['data']['limit'] = $query->limit();
         }
-        
+        var_dump($params['data']);
         $model    = $query->model();
         $response = $this->_send(__FUNCTION__, 'GET', $conditions, $params);
 
@@ -80,6 +74,16 @@ class Object extends \li3_cloudfiles\extensions\adapter\data\source\http\CloudFi
             if (isset($cascade)) {
                 $instance = $model::one($file->name, array('conditions' => array('container' => $conditions['container'])));
             } else {
+                
+                if (isset($file->subdir)) {
+                    $file->name          = $file->subdir;
+                    $file->bytes         = 0;
+                    $file->hash          = null;
+                    $file->content_type  = 'application/directory';
+                    $file->last_modified = null;
+                    $file->content       = null;
+                }
+                
                 $instance = $this->_instance($this->_classes['entity'], array(
                     'model'  => $query->model(),
                     'exists' => true,
@@ -88,7 +92,7 @@ class Object extends \li3_cloudfiles\extensions\adapter\data\source\http\CloudFi
                         'bytes'        => (integer) $file->bytes,
                         'hash'         => $file->hash,
                         'type'         => $file->content_type,
-                        'lastModified' => $this->_dateToTimestamp($file->last_modified, "Y-m-d\TH:i:s\.u"),
+                        'lastModified' => !($file->last_modified) ?: $this->_dateToTimestamp($file->last_modified, "Y-m-d\TH:i:s\.u"),
                         'content'      => null
                     )
                 ));
@@ -125,10 +129,19 @@ class Object extends \li3_cloudfiles\extensions\adapter\data\source\http\CloudFi
     public function create($query, array $params = array()) {
         
         extract($query->export($this, array('data')));
-
-        $model = $query->model();
-        $data['data']['container'] = $model::meta('container');
-
+        
+        if (!isset($params['headers'])) {
+            $params['headers'] = array();
+        }
+        
+        if (isset($data['data']['meta']) && is_array($data['data']['meta'])) {
+            foreach ($data['data']['meta'] as $key => $value) {
+                $params['headers']["X-Object-Meta-" . ucfirst($key)] = $value;
+            }
+            unset($data['data']['meta']);
+        }
+            
+        $model    = $query->model();
         $response = $this->_send(__FUNCTION__, 'PUT', $data['data'], $params);
 
         $result = array(

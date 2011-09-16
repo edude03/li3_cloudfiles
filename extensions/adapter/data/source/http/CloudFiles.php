@@ -28,9 +28,10 @@ class CloudFiles extends \lithium\data\source\Http {
     protected $_classes = array(
         'service'   => 'lithium\net\http\Service',
         'entity'    => 'lithium\data\entity\Document',
-        'set'       => 'lithium\data\collection\DocumentSet',
+        'set'       => 'lithium\data\collection\DocumentArray',
         'object'    => 'li3_cloudfiles\extensions\adapter\data\source\http\cloudfiles\Object',
-        'container' => 'li3_cloudfiles\extensions\adapter\data\source\http\cloudfiles\Container',
+        'storageContainer' => 'li3_cloudfiles\extensions\adapter\data\source\http\cloudfiles\StorageContainer',
+        'cdnContainer'     => 'li3_cloudfiles\extensions\adapter\data\source\http\cloudfiles\CdnContainer',
     );
     
     /**
@@ -60,11 +61,15 @@ class CloudFiles extends \lithium\data\source\Http {
     public function __construct(array $config = array()) {
         
         $defaults = array(
+            'type'     => 'http',
+            'socket'   => 'Context',
             'host'     => 'auth.api.rackspacecloud.com',
             'port'     => 443,
             'scheme'   => 'https',
             'cache'    => false,
-            'basePath' => '/v1.0'
+            'basePath' => '/v1.0',
+            'login'    => null,
+            'password' => null
         );
 
         parent::__construct($config + $defaults);
@@ -125,7 +130,12 @@ class CloudFiles extends \lithium\data\source\Http {
 
         if (!isset($this->_sources[$type])) {
             return null;
-        }      
+        }
+        
+        // if there is only one possible path for this request type
+        if (!is_array($this->_sources[$type])) {
+            return String::insert($this->_sources[$type], array_map('urlencode', $params) + $this->_config);
+        }
         
         $path = null;        
         $keys = array_keys($params);
@@ -155,7 +165,7 @@ class CloudFiles extends \lithium\data\source\Http {
      * @return object Instance of net\http\Response.
      */
     protected function _send($type, $method, $data, array $options = array()) {
-        
+
         $defaults = array('url' => 'files.storageUrl');
         $options  = $options + $defaults;
 
@@ -173,17 +183,17 @@ class CloudFiles extends \lithium\data\source\Http {
             $options['headers'] = array('X-Auth-Token' => $credentials['token']);
         }
 
-        if (in_array($type, array('create', 'update'))) {
-            $options['type'] = $data['type'];
+        if (isset($data['type'])) {
+            $options['type']                    = $data['type'];
             $options['headers']['Content-type'] = $data['type'];
-            $data            = $data['content'];
+            $data                               = $data['content'];
         }
 
-        if ($type === 'create') {
+        if (is_string($data)) {
             $options['headers']['Content-Length'] = mb_strlen($data);
         }
 
-        if (isset($options['data']) && is_array($options['data'])) {
+        if (isset($options['data']) && is_array($options['data']) && is_array($data)) {
             $data += $options['data'];
         }
 

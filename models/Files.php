@@ -15,11 +15,7 @@ class Files extends \lithium\data\Model {
     public static function __init() {
         
         parent::__init();
-        
-        $nullFinder = function ($self, $params, $chain) {
-            return null;
-        };
-        
+
         $self = static::_object();
         
         $self->_finders = array(
@@ -27,10 +23,17 @@ class Files extends \lithium\data\Model {
                 $params['options']['conditions']['name'] = $params['options']['one'];
                 return $chain->next($self, $params, $chain);                
             },
-            'in'  => function ($self, $params, $chain) {
-                $params['options']['conditions'] = array(
-                    'container' => $params['options']['in']
-                );
+            'in' => function ($self, $params, $chain) {
+                
+                if (isset($params['options']['in'])) {
+                    $container = $params['options']['in'];
+                } else {
+                    $container = $params['options']['conditions']['name'];
+                    unset($params['options']['conditions']['name']);
+                }
+                
+                $params['options']['conditions']['container'] = $container;
+
                 return $chain->next($self, $params, $chain);
             }
         );
