@@ -219,13 +219,13 @@ And here's a list of all available query parameters:
 
     This is compatible with the "old way" of setting up a hierarchical structure, where
     you had to upload a dummy file named after the desired "directory" with its content type
-    set to application/directory. Now the API will consider the backslash "/" 
+    set to application/directory. Now the API will consider the (forward) slash "/" 
 
 
 * delimiter
 
     The `delimiter` is the path separator for a hierarchical structure. You can specify any
-    single character as a `delimiter`, although the most common (and saner) choice is the backslash /.
+    single character as a `delimiter`, although the most common (and saner) choice is the (forward) slash /.
 
     Using a delimiter is most useful when combined with `prefix`.
     
