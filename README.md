@@ -1,5 +1,7 @@
 li3\_cloudfiles is a Lithium plugin providing a data source that interfaces with Rackspace Cloud Files.
 
+*this is still unstable. you have been warned.*
+
 # Installation
 
         cd /path/to/app/libraries
